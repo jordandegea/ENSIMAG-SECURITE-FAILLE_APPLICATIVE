@@ -1,0 +1,36 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "minimal/jessie64"
+
+  # setup virtual hostname and provision local IP
+  config.vm.hostname = "wordpress-exploit.dev"
+  config.vm.network :private_network, :ip => "192.168.50.4"
+  config.hostsupdater.aliases = %w{www.wordpress-exploit.dev}
+  config.hostsupdater.remove_on_suspend = true
+  
+  # Fix for slow external network connections
+  config.vm.provider :virtualbox do |vb|
+    vb.linked_clone = true
+    vb.memory = 1024
+    vb.cpus = 1
+    vb.customize ["modifyvm", :id, "--usb", "on"]
+    vb.customize ["modifyvm", :id, "--usbehci", "off"]
+    vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
+    vb.customize ['modifyvm', :id, '--natdnsproxy1', 'on']
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+       sudo apt-get update
+       SCRIPTS=/vagrant/scripts
+       chmod +x $SCRIPTS/*
+       $SCRIPTS/install_apt.sh
+       sudo cp $SCRIPTS/list_admins.sh /usr/local/bin/list_admins
+    SHELL
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+       SCRIPTS=/vagrant/scripts
+       $SCRIPTS/install_wordpress.sh
+  SHELL
+  
+end
